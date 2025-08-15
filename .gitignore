@@ -1,0 +1,14 @@
+.venv
+.env
+gemma*
+phi*
+uu_vectorstore
+uu_vectorstore_new
+mapped_chunks_causal.pkl
+.env
+*__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.egg
+*.egg-info
