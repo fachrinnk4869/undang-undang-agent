@@ -6,6 +6,7 @@ class Settings(BaseSettings):
         env_file=".env", extra="ignore", env_file_encoding="utf-8")
 
     GROQ_API_KEY: str
+    GOOGLE_API_KEY: str
     ELEVENLABS_API_KEY: str
     ELEVENLABS_VOICE_ID: str
     TOGETHER_API_KEY: str

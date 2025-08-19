@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
@@ -6,6 +7,7 @@ import re
 from langchain.document_loaders import PyPDFLoader
 from pydantic import BaseModel, Field
 from ai_companion.core.prompts import CONTEXT_ANALYSIS_PROMPT, MEMORY_ANALYSIS_PROMPT
+from ai_companion.graph.utils.helpers import get_chat_model
 from ai_companion.memory.mapper import ChromaContextMapper, ChromaMemoryMapper
 from ai_companion.memory.memory_template import ContextMemory, Memory
 from ai_companion.storage.vector.chroma import ChromaStorage
@@ -80,12 +82,8 @@ class MemoryManager(Manager):
     def __init__(self, storage, mapper) -> None:
         """Initialize the MemoryManager with a vector store and chunker."""
         super().__init__(storage, mapper)
-        self.llm = ChatGroq(
-            model=settings.SMALL_TEXT_MODEL_NAME,
-            api_key=settings.GROQ_API_KEY,
-            temperature=0.1,
-            max_retries=2,
-        ).with_structured_output(MemoryAnalysis)
+        self.llm = get_chat_model(
+            temperature=0.1).with_structured_output(MemoryAnalysis)
 
     def find_memory(self, embeddings):
         raw_results = self.vector_store.search(embeddings)
@@ -130,12 +128,8 @@ class ContextManager(Manager):
     def __init__(self, storage, mapper) -> None:
         """Initialize the ContextManager with a vector store and chunker."""
         super().__init__(storage, mapper)
-        self.llm = ChatGroq(
-            model=settings.TEXT_MODEL_NAME,
-            api_key=settings.GROQ_API_KEY,
-            temperature=0.1,
-            max_retries=2,
-        ).with_structured_output(ContextAnalysis)
+        self.llm = get_chat_model(
+            temperature=0.1)
 
     async def _analyze_context(self, message: str) -> ContextAnalysis:
         """Analyze a message to determine importance and format if needed."""
@@ -149,7 +143,17 @@ class ContextManager(Manager):
 
         # Analyze the message for importance and formatting
         analysis = await self._analyze_context(message.content)
-        # print(f"Analysis result: {analysis}")
+        # biasanya result.content masih string JSON
+        raw_json = analysis.content if isinstance(
+            analysis, dict) else str(analysis.content)
+        print(f"Raw JSON: {raw_json}")
+        # bersihin ```json ... ```
+        cleaned = raw_json.replace("```json", "").replace("```", "").strip()
+
+        # parse ke Pydantic
+        analysis = ContextAnalysis.model_validate(json.loads(cleaned))
+        print(f"Analysis result: {analysis}")
+
         return {
             "type": analysis.type,
             "filters": analysis.filters,
@@ -170,6 +174,7 @@ class ContextManager(Manager):
                 text=chunk,
                 metadata={
                     **metadata,
+                    'text': chunk,
                     "id": str(uuid.uuid4()),
                     "file_name": source_filename,
                     "timestamp": datetime.now().isoformat(),

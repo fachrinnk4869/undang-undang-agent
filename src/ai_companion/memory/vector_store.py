@@ -117,6 +117,35 @@ class VectorStore:
             "metadata": metadata
         })
 
+    def search_memories_by_filters(self, query: str, filters: dict) -> List[Memory]:
+        """Search for memories based on filters.
+
+        Args:
+            filters: Dictionary of metadata filters to apply
+            k: Number of results to return
+
+        Returns:
+            List of Memory objects matching the filters
+        """
+        query_embedding = self.model.encode(query).tolist()
+        raw_results = self.storage.search_by_filters(
+            query_embedding, filters)
+        return self.mapper.map_results(raw_results)
+
+    def search_memories_just_by_filters(self, filters: dict) -> List[Memory]:
+        """Search for memories based on filters.
+
+        Args:
+            filters: Dictionary of metadata filters to apply
+            k: Number of results to return
+
+        Returns:
+            List of Memory objects matching the filters
+        """
+        raw_results = self.storage.search_just_by_filters(
+            filters)
+        return self.mapper.map_results(raw_results)
+
     def search_memories(self, query: str, k: int = 5) -> List[Memory]:
         """Search for similar memories in the vector store.
 

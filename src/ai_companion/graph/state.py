@@ -22,6 +22,11 @@ class AICompanionState(MessagesState):
     output: str = None
     memory_context: str = None
     summary: str = None
+    chain = None
+    chunks: list = None
+    current_index: int = 0
+
+    # for select flow by type
     type: str = None
     filters: dict = None
     is_important: bool = False

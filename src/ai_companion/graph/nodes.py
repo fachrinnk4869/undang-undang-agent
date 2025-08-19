@@ -1,3 +1,4 @@
+# from sentence_transformers import CrossEncoder
 import os
 from uuid import uuid4
 
@@ -7,6 +8,8 @@ from langchain_core.runnables import RunnableConfig
 from ai_companion.graph.state import AICompanionState
 from ai_companion.graph.utils.chains import (
     get_character_response_chain,
+    get_direct_response,
+    get_list_response,
     get_router_chain,
 )
 from ai_companion.graph.utils.helpers import (
@@ -31,20 +34,210 @@ async def memory_extraction_node(state: AICompanionState):
     await memory_manager.extract_and_store_memories(state["messages"][-1])
     return {}
 
+memory_context_manager = get_context_manager()
+
 
 async def context_injection_node(state: AICompanionState):
     """Extract and store related information about undang undang from the last message."""
     if not state["messages"]:
         return {}
 
-    memory_manager = get_context_manager()
-    result = await memory_manager.extract_context(state["messages"][-1])
+    result = await memory_context_manager.extract_context(state["messages"][-1])
     print(f"Extracted context: {result}")
     return {
         "type": result['type'],
         "filters": result['filters'],
         "is_important": result['is_important']
     }
+
+
+async def list_node(state: AICompanionState):
+    """Handle the 'list' workflow."""
+    # Implement the logic for listing results based on filters
+    filters = state.get("filters", {})
+    query = state["messages"][-1].content
+
+    contexts = memory_context_manager.vector_store.search_memories_by_filters(query,
+                                                                              filters)
+    memory_context = "\n".join(str(c) for c in contexts)
+    # print(f"Memory context for filters {filters}: {memory_context}")
+
+    chain = get_list_response(state.get("summary", ""))
+
+    response = await chain.ainvoke(
+        {
+            "messages": state["messages"],
+            "memory_context": contexts,
+        },
+        # config,
+    )
+    return {"messages": AIMessage(content=response)}
+
+# cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+
+async def direct_node(state: AICompanionState):
+    """Handle the 'list' workflow."""
+    # Implement the logic for listing results based on filters
+    # Implement the logic for listing results based on filters
+    filters = state.get("filters", {})
+
+    chunks = memory_context_manager.vector_store.search_memories_just_by_filters(
+        filters)
+
+    # chain = get_direct_response()
+
+    return {
+        # "chain": chain,
+        "chunks": chunks
+    }
+
+
+async def llm_node(state: AICompanionState):
+    """Handle llm node."""
+    response = await state["chain"].ainvoke(
+        {
+            "messages": state["messages"],
+            "memory_context": state['memory_context'],
+        },
+        # config,
+    )
+    return {"messages": AIMessage(content=response)}
+
+
+async def summarize_node(state: AICompanionState):
+    """Summarize the conversation."""
+    model = get_chat_model()
+    summary_so_far = state.get("summary", "")
+    idx = state.get("current_index", 0)
+    chunk = state['chunks'][idx:idx + 10] if idx + \
+        10 < len(state['chunks']) else state['chunks'][idx:]
+
+    if summary_so_far:
+        prompt = f"""
+        Ringkasan sementara:
+        {summary_so_far}
+
+        Tambahan teks:
+        {str(chunk)}
+
+        Tolong perbarui ringkasan dengan hanya menuliskan
+        poin-poin inti (maksimal 3-5 poin), tanpa detail tambahan. gunakan bahasa yang baik dan benar, jangan dipaksakan hanya satu paragraf kalau memang membutuhkan paragraph lebih dari satu.
+        """
+    else:
+        prompt = f"""
+        Ringkas isi teks berikut menjadi poin-poin utama saja
+        (maksimal 3-5 poin, kalimat singkat):
+
+        {chunk}
+        """
+
+    new_summary = await model.ainvoke(prompt)
+    print(f"New summary: {new_summary.content}")
+    return {
+        "summary": new_summary.content,
+        "current_index": idx + 10
+    }
+
+
+async def summary_node(state: AICompanionState):
+    """Handle the 'list' workflow."""
+    # Implement the logic for listing results based on filters
+    filters = state.get("filters", {})
+
+    memory_context = memory_manager.vector_store.search_memories_by_filters(
+        filters)
+
+    chain = get_list_response(state.get("summary", ""))
+
+    response = await chain.ainvoke(
+        {
+            "messages": state["messages"],
+            "memory_context": memory_context,
+        },
+        # config,
+    )
+    return {"messages": AIMessage(content=response)}
+
+
+async def mixed_node(state: AICompanionState):
+    """Handle the 'list' workflow."""
+    # Implement the logic for listing results based on filters
+    filters = state.get("filters", {})
+
+    memory_context = memory_manager.vector_store.search_memories_by_filters(
+        filters)
+
+    chain = get_list_response(state.get("summary", ""))
+
+    response = await chain.ainvoke(
+        {
+            "messages": state["messages"],
+            "memory_context": memory_context,
+        },
+        # config,
+    )
+    return {"messages": AIMessage(content=response)}
+
+
+async def comparison_node(state: AICompanionState):
+    """Handle the 'list' workflow."""
+    # Implement the logic for listing results based on filters
+    filters = state.get("filters", {})
+
+    memory_context = memory_manager.vector_store.search_memories_by_filters(
+        filters)
+
+    chain = get_list_response(state.get("summary", ""))
+
+    response = await chain.ainvoke(
+        {
+            "messages": state["messages"],
+            "memory_context": memory_context,
+        },
+        # config,
+    )
+    return {"messages": AIMessage(content=response)}
+
+
+async def count_node(state: AICompanionState):
+    """Handle the 'list' workflow."""
+    # Implement the logic for listing results based on filters
+    filters = state.get("filters", {})
+
+    memory_context = memory_manager.vector_store.search_memories_by_filters(
+        filters)
+
+    chain = get_list_response(state.get("summary", ""))
+
+    response = await chain.ainvoke(
+        {
+            "messages": state["messages"],
+            "memory_context": memory_context,
+        },
+        # config,
+    )
+    return {"messages": AIMessage(content=response)}
+
+
+async def exists_node(state: AICompanionState):
+    """Handle the 'list' workflow."""
+    # Implement the logic for listing results based on filters
+    filters = state.get("filters", {})
+
+    memory_context = memory_manager.vector_store.search_memories_by_filters(
+        filters)
+
+    chain = get_list_response(state.get("summary", ""))
+
+    response = await chain.ainvoke(
+        {
+            "messages": state["messages"],
+            "memory_context": memory_context,
+        },
+        # config,
+    )
+    return {"messages": AIMessage(content=response)}
 
 
 async def conversation_node(state: AICompanionState, config: RunnableConfig):

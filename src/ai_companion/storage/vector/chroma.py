@@ -34,6 +34,35 @@ class ChromaStorage():
         return self.collection.query(
             query_embedding, n_results=top_k)
 
+    def search_just_by_filters(self, filter: dict = {}):
+        """Search for documents by filter in Chroma DB."""
+        print("nomor pasal", filter['pasal'])
+        print("nomor tahun", filter['tahun'])
+        filters = {
+            "$and": [
+                {"nomor": {"$eq": filter['pasal']}},
+                {"tahun": {"$eq": filter['tahun']}}
+            ]
+        }
+        return self.collection.get(
+            where=filters)
+
+    def search_by_filters(self, query_embedding: str, filter: dict = {}):
+        """Search for documents by filter in Chroma DB."""
+        if not filter:
+            return self.collection.query(query_embedding)
+        print("nomor pasal", filter['pasal'])
+        print("nomor tahun", filter['tahun'])
+        filters = {
+            "$and": [
+                {"nomor": {"$eq": filter['pasal']}},
+                {"tahun": {"$eq": filter['tahun']}}
+            ]
+        }
+        return self.collection.query(
+            query_embedding,
+            where=filters)
+
     def save(self, vectors: dict) -> None:
         """Save a text and its metadata to Chroma DB."""
         self.collection.add(
